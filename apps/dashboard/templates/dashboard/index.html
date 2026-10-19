@@ -1,0 +1,40 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Analytics Dashboard</title>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" integrity="sha384-cCVCZkAjYNxaYKbM8lsArLznDF/SvMFr1jcZrvOpSTCa0W40ZAdLzHCEulnUa5i7" crossorigin="anonymous"></script>
+  <style>
+    body { font-family: sans-serif; margin: 24px; background:#f6f7f9; }
+    .card { background:#fff; border-radius:8px; padding:16px; margin-bottom:16px; box-shadow:0 1px 3px #0002; }
+    #status { font-size:12px; color:#888; }
+  </style>
+</head>
+<body>
+  <h2>Live Metrics <span id="status">connecting...</span></h2>
+  <div class="card"><b>Total events (24h):</b> <span id="total">0</span></div>
+  <div class="card"><div id="line"></div></div>
+  <div class="card"><div id="bar"></div></div>
+<script>
+function render(d) {
+  document.getElementById("total").textContent = d.total_events;
+  const names = [...new Set(d.series.map(r => r.name))];
+  const lines = names.map(n => ({
+    type: "scatter", mode: "lines+markers", name: n,
+    x: d.series.filter(r => r.name === n).map(r => r.hour),
+    y: d.series.filter(r => r.name === n).map(r => r.total),
+  }));
+  Plotly.react("line", lines, {title: "Events per hour"});
+  Plotly.react("bar", [{type: "bar", x: d.by_name.map(r => r.name), y: d.by_name.map(r => r.total)}], {title: "Top metrics"});
+}
+function connect() {
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  const ws = new WebSocket(`${proto}://${location.host}/ws/metrics/`);
+  ws.onopen = () => document.getElementById("status").textContent = "live";
+  ws.onmessage = e => render(JSON.parse(e.data));
+  ws.onclose = () => { document.getElementById("status").textContent = "reconnecting..."; setTimeout(connect, 3000); };
+}
+connect();
+</script>
+</body>
+</html>
